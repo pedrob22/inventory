@@ -8,6 +8,7 @@ class Inventory extends CI_Controller
         parent::__construct();
         $this->load->model('AuthModel');
         $this->load->model('AdminModel');
+        $this->load->model('RequestModel'); // DITAMBAH: model RequestModel
         $this->AuthModel->cekLoginInventory();
     }
 
@@ -141,8 +142,6 @@ class Inventory extends CI_Controller
         $join = 'user.id_user=purchase_order.id_user';
         $data['po'] = $this->AdminModel->join_Where('purchase_order', 'user', $join, $where)->row_array();
         $where_detail['id_po'] = $data['po']['id_detail_po'];
-        // var_dump($where_detail['id_po']);
-        // die;
         $join2 = 'barang.id_barang=detail_po.id_barang';
         $sum = 'SUM(qty_po) AS Total';
         $data['detail_po'] = $this->AdminModel->join_Where('detail_po', 'barang', $join2, $where_detail)->result();
@@ -183,5 +182,47 @@ class Inventory extends CI_Controller
     public function Profile()
     {
         $this->template->load('layout/main', 'inventory/profile');
+    }
+
+    // ============================================
+    // =========== FUNGSI SIMPAN TAMBAHAN =========
+    // ============================================
+    public function simpan()
+    {
+        $id_user = $this->input->post('id_user');
+        $id_departement = $this->input->post('id_departement');
+        $tgl_permintaan = $this->input->post('tgl_permintaan');
+        $id_barang = $this->input->post('id_barang');
+        $qty_permintaan = $this->input->post('qty_permintaan');
+        $ket_permintaan = $this->input->post('ket_permintaan');
+
+        if (!$id_barang || !$qty_permintaan) {
+            $this->session->set_flashdata('error', 'Data barang dan jumlah wajib diisi.');
+            redirect('Inventory/Tambah_Request_Permintaan_Barang');
+        }
+
+        $header = [
+            'id_user' => $id_user,
+            'id_departement' => $id_departement,
+            'tgl_permintaan' => date('Y-m-d', strtotime($tgl_permintaan)),
+            'status_permintaan' => 'Waiting',
+            'view_permintaan' => 0
+        ];
+
+        $id_permintaan = $this->RequestModel->insert_permintaan($header);
+
+        foreach ($id_barang as $key => $id_brg) {
+            $detail = [
+                'id_permintaan' => $id_permintaan,
+                'id_barang' => $id_brg,
+                'qty_permintaan' => $qty_permintaan[$key],
+                'qty_keluar_permintaan' => 0,
+                'ket_permintaan' => $ket_permintaan[$key]
+            ];
+            $this->RequestModel->insert_permintaan_detail($detail);
+        }
+
+        $this->session->set_flashdata('success', 'Data permintaan berhasil disimpan.');
+        redirect('Inventory/Request_Permintaan_Barang');
     }
 }

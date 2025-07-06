@@ -13,6 +13,13 @@ class AdminModel extends CI_Model
         return $this->db->insert($database, $data);
     }
 
+    // Tambahan fungsi ini untuk insert dan return ID
+    function createDataReturnID($database, $data)
+    {
+        $this->db->insert($database, $data);
+        return $this->db->insert_id();
+    }
+
     function updateData($database, $data, $id)
     {
         return $this->db->update($database, $data, $id);
@@ -71,7 +78,6 @@ class AdminModel extends CI_Model
         $this->db->where($where);
         return $this->db->get();
     }
-
 
     function doubleJoin_Where($database, $database2, $database3, $join1, $join2, $where)
     {
@@ -156,7 +162,7 @@ class AdminModel extends CI_Model
         return $this->db->get();
     }
 
-    function get_stok($database, $database2, $join1,  $where)
+    function get_stok($database, $database2, $join1, $where)
     {
         $this->db->select('SUM(qty_masuk) as Total, nama_barang, barang_masuk.id_barang');
         $this->db->from($database);

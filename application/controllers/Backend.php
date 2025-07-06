@@ -854,62 +854,72 @@ class Backend extends CI_Controller
     }
 
     public function tambahpermintaan_barang()
-    {
-        $id_departement = $this->input->post('id_departement');
-        $id_barang = $this->input->post('id_barang');
-        $qty_permintaan = $this->input->post('qty_permintaan');
-        $ket_permintaan = $this->input->post('ket_permintaan');
-        $tgl_permintaan = date('Y-m-d', strtotime($this->input->post('tgl_permintaan')));
+{
+    $id_departement = $this->input->post('id_departement');
+    $id_barang = $this->input->post('id_barang');
+    $qty_permintaan = $this->input->post('qty_permintaan');
+    $ket_permintaan = $this->input->post('ket_permintaan');
+    $tgl_permintaan = date('Y-m-d', strtotime($this->input->post('tgl_permintaan')));
 
-        if (!$this->input->is_ajax_request()) {
-            $result['status'] = false;
-        } else {
-            $cekData = $this->AdminModel->lastData('permintaan_barang', 'id_permintaan', 'DESC')->row_array();
+    if (!$this->input->is_ajax_request()) {
+        $result['status'] = false;
+    } else {
+        try {
+            // Buat header permintaan
+            $data_permintaan = [
+                'id_departement' => $id_departement,
+                'tgl_permintaan' => $tgl_permintaan,
+                'status_permintaan' => 'pending',
+                'view_permintaan' => 0
+            ];
 
-            if ($cekData != Null) {
-                $id_permintaan = $cekData['id_permintaan'] + 1;
-            } else {
-                $id_permintaan = 1;
-            }
+            // Insert permintaan_barang dulu untuk dapat ID
+            $id_permintaan = $this->AdminModel->createDataReturnID('permintaan_barang', $data_permintaan);
 
-            try {
-                $data_permintaan = [
-                    'id_departement' => $id_departement,
-                    'id_detail_permintaan' => $id_permintaan,
-                    'tgl_permintaan' => $tgl_permintaan
+            // Loop barang
+            for ($i = 0; $i < count($id_barang); $i++) {
+                // Cek stok
+                $where['stok_barang.id_barang'] = $id_barang[$i];
+                $join = 'barang.id_barang=stok_barang.id_barang';
+                $query = $this->AdminModel->join_Where('stok_barang', 'barang', $join, $where)->row_array();
+
+                if (!$query) {
+                    $result['status'] = 'error';
+                    $result['message'] = 'Data stok barang tidak ditemukan.';
+                    echo json_encode($result);
+                    return;
+                }
+
+                $qty_stok = $query['qty_stok'] - $qty_permintaan[$i];
+                if ($qty_stok < 0) {
+                    $result['status'] = 'error';
+                    $result['message'] = 'Stok barang ' . $query['nama_barang'] . ' tidak mencukupi.';
+                    echo json_encode($result);
+                    return;
+                }
+
+                // Data detail
+                $data_detail = [
+                    'id_permintaan' => $id_permintaan,
+                    'id_barang' => $id_barang[$i],
+                    'qty_permintaan' => $qty_permintaan[$i],
+                    'qty_keluar_permintaan' => 0,
+                    'ket_permintaan' => $ket_permintaan[$i],
                 ];
-                for ($i = 0; $i < count($id_barang); $i++) {
-                    $data_detail = [
-                        'id_barang' => $id_barang[$i],
-                        'id_permintaan' => $id_permintaan,
-                        'qty_permintaan' => $qty_permintaan[$i],
-                        'ket_permintaan' => $ket_permintaan[$i],
-                    ];
-                    $where['stok_barang.id_barang'] = $id_barang[$i];
-                    $join = 'barang.id_barang=stok_barang.id_barang';
-                    $query = $this->AdminModel->join_Where('stok_barang', 'barang', $join, $where)->row_array();
-                    $qty_stok = $query['qty_stok'] - $qty_permintaan[$i];
-                    if ($qty_stok < 0) {
-                        $result['status'] = 'Cek Stok Barang Anda!';
-                        $result['message'] = 'Cek Stok Barang ' . $query['nama_barang'] . 'Anda!';
-                        echo json_encode($result);
-                        die;
-                    } else {
-                        $result['status'] = true;
-                        $data_simpan[] = $data_detail;
-                    }
-                }
 
-                for ($i = 0; $i < count($data_simpan); $i++) {
-                    $this->AdminModel->createData('detail_permintaan', $data_simpan[$i]);
-                }
-                $this->AdminModel->createData('permintaan_barang', $data_permintaan);
-            } catch (\Exception $e) {
-                $result['status'] = false;
+                // Simpan detail
+                $this->AdminModel->createData('detail_permintaan', $data_detail);
             }
+
+            $result['status'] = 'success';
+        } catch (\Exception $e) {
+            $result['status'] = 'error';
+            $result['message'] = $e->getMessage();
         }
-        echo json_encode($result);
     }
+
+    echo json_encode($result);
+}
 
     public function get_detail_permintaan()
     {

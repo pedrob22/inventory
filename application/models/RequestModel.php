@@ -11,6 +11,6 @@ class RequestModel extends CI_Model
 
     public function insert_permintaan_detail($data)
     {
-        $this->db->insert('permintaan_barang_detail', $data);
+        $this->db->insert('detail_permintaan', $data);
     }
 }
